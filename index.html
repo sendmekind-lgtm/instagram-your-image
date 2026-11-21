@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="si">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="description" content="Share your location only when you choose, with your permission.">
+  <title>Location Share — ඔබේ අවසරයෙන් පමණයි</title>
+  <style>
+    :root {color-scheme: dark; --bg:#0b1220; --panel:#111d33; --border:#2b3c57; --text:#eef4ff; --muted:#b1c0d5; --accent:#4bd4bd; --accent-dark:#07251f}
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100vh;background:radial-gradient(circle at 15% 0%, #21405a 0%, transparent 39%),radial-gradient(circle at 90% 95%, #153b3b 0%,transparent 45%),var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Noto Sans Sinhala",sans-serif;display:grid;place-items:center;padding:28px 16px}
+    main{width:min(100%,480px);background:rgba(17,29,51,.94);border:1px solid var(--border);border-radius:24px;padding:30px 25px;box-shadow:0 28px 75px #0005}
+    .eyebrow{font-size:12px;text-transform:uppercase;letter-spacing:.14em;color:var(--accent);font-weight:800}
+    .marker{width:52px;height:52px;border:1px solid #367e79;background:#183b43;border-radius:15px;display:grid;place-items:center;font-size:28px;margin-bottom:20px}
+    h1{font-size:26px;line-height:1.3;margin:12px 0 10px}
+    p{line-height:1.7;color:var(--muted);font-size:15px}
+    .notice{border:1px solid #355a5b;background:#183238;padding:14px 15px;border-radius:12px;margin:21px 0;color:#dcf8ef;font-size:14px;line-height:1.75}
+    label{display:flex;gap:12px;align-items:start;line-height:1.65;margin-bottom:20px;font-size:14px}
+    input{accent-color:var(--accent);width:18px;height:18px;flex:0 0 auto;margin-top:3px}
+    button,.link-btn{display:flex;justify-content:center;align-items:center;width:100%;background:var(--accent);border:0;border-radius:12px;color:var(--accent-dark);font-size:15px;font-weight:750;padding:14px 16px;cursor:pointer;text-decoration:none;min-height:48px;font-family:inherit}
+    button:disabled{opacity:.4;cursor:not-allowed}
+    .secondary{background:transparent;color:var(--text);border:1px solid #6a8399;margin-top:10px}
+    .result{display:none;margin-top:22px;padding-top:20px;border-top:1px solid var(--border)}
+    .coords{font-size:14px;font-variant-numeric:tabular-nums;line-height:1.9;background:#0c1829;border-radius:12px;padding:14px;margin:12px 0 16px;overflow-wrap:anywhere}
+    .status{color:#b8dff4;font-size:14px;min-height:20px;margin-top:11px}
+    small{display:block;font-size:12px;color:#9caec3;line-height:1.65;margin-top:21px}
+    a{color:#a4f4e4}
+  </style>
+</head>
+<body>
+  <main>
+    <div class="marker" aria-hidden="true">📍</div>
+    <div class="eyebrow">Private by design</div>
+    <h1>ඔබේ Location එක Share කරන්න</h1>
+    <p>ඔබ කැමති නම් පමණක් ඔබේ වර්තමාන location එක ලබාගෙන, WhatsApp හරහා වෙනත් කෙනෙකුට යවන්න.</p>
+    <div class="notice"><strong>ඔබේ පාලනයේ.</strong> මේ page එක location එකක් රහසින් එකතු කරන්නේ නැහැ. ඔබ කැමති වෙලා browser permission දුන්නොත් location එක ඔබටම පෙන්වනවා. WhatsApp එකෙන් යවන්නත් ඔබම තීරණය කළ යුතුයි.</div>
+    <label><input type="checkbox" id="consent"><span>මගේ location එක මේ page එකට පෙන්වීමට මම කැමැත්ත දෙමි. එය වෙනත් කෙනෙකුට යවන්නේ මම Send කළොත් පමණක් බව තේරුම් ගනිමි.</span></label>
+    <button id="locate" disabled>මගේ Location එක බලන්න</button>
+    <p id="status" class="status" role="status" aria-live="polite"></p>
+    <section class="result" id="result" aria-live="polite">
+      <strong>ඔබට පමණක් පෙන්වන Location එක</strong>
+      <div class="coords" id="coords"></div>
+      <button id="share">WhatsApp හරහා Location එක යවන්න</button>
+      <button class="secondary" id="copy">Google Maps Link එක Copy කරන්න</button>
+    </section>
+    <small>GPS නිවැරදිතාව device එක, signal එක, browser settings සහ permission මත රඳා පවතී. Exact location එකක් සහතික කළ නොහැක. GitHub Pages මඟින් HTTPS වල host කළ හැක. මේ site එකේ analytics, server, database හෝ automatic forwarding නැහැ.</small>
+  </main>
+  <script>
+    'use strict';
+    const consent = document.getElementById('consent');
+    const locate = document.getElementById('locate');
+    const status = document.getElementById('status');
+    const result = document.getElementById('result');
+    const coords = document.getElementById('coords');
+    const share = document.getElementById('share');
+    const copy = document.getElementById('copy');
+    let locationLink = '';
+    consent.addEventListener('change', () => {
+      locate.disabled = !consent.checked;
+      if (!consent.checked) {
+        locationLink = '';
+        coords.textContent = '';
+        result.style.display = 'none';
+        status.textContent = '';
+      }
+    });
+    locate.addEventListener('click', () => {
+      if (!consent.checked) return;
+      result.style.display = 'none';
+      locationLink = '';
+      locate.disabled = true;
+      status.textContent = 'Location permission එකක් ඉල්ලනවා…';
+      if (!('geolocation' in navigator)) {
+        status.textContent = 'මේ browser එක Location feature එකට support කරන්නේ නැහැ.';
+        locate.disabled = !consent.checked;
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(position => {
+        if (!consent.checked) { locate.disabled = true; return; }
+        const lat = position.coords.latitude;
+        const lon = position.coords.longitude;
+        const accuracy = Math.round(position.coords.accuracy);
+        locationLink = 'https://www.google.com/maps?q=' + encodeURIComponent(lat.toFixed(6) + ',' + lon.toFixed(6));
+        coords.textContent = 'Latitude: ' + lat.toFixed(6) + '\nLongitude: ' + lon.toFixed(6) + '\nආසන්න Accuracy: ±' + accuracy + ' m';
+        coords.style.whiteSpace = 'pre-line';
+        result.style.display = 'block';
+        status.textContent = 'Location එක ලබාගත්තා. එය තවම කිසිවෙකුට යවලා නැහැ.';
+        locate.disabled = !consent.checked;
+      }, error => {
+        const errors = {
+          1: 'Location permission එක ලබාදී නැහැ. ඔබේ location එක ලබාගෙන නැහැ.',
+          2: 'Location එක සොයාගත නොහැක. පසුව නැවත උත්සාහ කරන්න.',
+          3: 'Location request එකට ගතවූ කාලය ඉක්මවා ගියා.'
+        };
+        status.textContent = errors[error.code] || 'Location ලබාගැනීමේ දෝෂයක් ඇති වුණා.';
+        locate.disabled = !consent.checked;
+      }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+    });
+    share.addEventListener('click', () => {
+      if (!consent.checked || !locationLink) return;
+      const message = 'මම කැමැත්තෙන් share කරන මගේ Location එක: ' + locationLink;
+      window.open('https://wa.me/?text=' + encodeURIComponent(message), '_blank', 'noopener,noreferrer');
+    });
+    copy.addEventListener('click', async () => {
+      if (!consent.checked || !locationLink) return;
+      try { await navigator.clipboard.writeText(locationLink); status.textContent = 'Google Maps link එක copy වුණා. ඔබට අවශ්‍ය නම් share කරන්න.'; }
+      catch { status.textContent = 'Copy කිරීම අසාර්ථකයි. WhatsApp Share button එක භාවිත කරන්න.'; }
+    });
+  </script>
+</body>
+</html>
